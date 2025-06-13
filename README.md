@@ -12,6 +12,7 @@ Designed for quickly building up markdown files containing code snippets and com
   - The code (filename annotated, language-detected codeblock).
 - 🔄 Reset the message file instantly.
 - 📂 Open the message file in Neovim for review/copying.
+- 📋 Copy the markdown file content directly to clipboard.
 - ⚡ Works with any filetype.
 
 ## Installation
@@ -48,13 +49,15 @@ Default key bindings:
 | Add full buffer              | Normal  | `<leader>mb`      | Prompt, then append entire buffer as code block                |
 | Reset message file           | Normal  | `<leader>mr`      | Clear all contents of `.ai-message.md`                         |
 | Open message file for review | Normal  | `<leader>mo`      | Edit the message file in the current window                    |
+| Copy message file to clipboard | Normal  | `<leader>my`      | **Copy all of `.ai-message.md` directly to system clipboard**  |
 
 **Workflow example:**
 
 1. Visually select code (`v`...move).
 2. Press `<leader>ma`, describe the code (e.g. "This function sorts input").
 3. Repeat as desired!
-4. Press `<leader>mo` to open and copy/paste your composed markdown.
+4. Press `<leader>mo` to open and review your composed markdown, **or** `<leader>my` to copy everything to clipboard.
+5. Paste into your AI chatbot or issue tracker!
 
 **Output file format (`.ai-message.md`):**
 ```markdown
@@ -83,6 +86,7 @@ require('compose-ai-message').setup{
     open_file = '<leader>mo',
     add_visual_selection = '<leader>ma',
     add_full_buffer = '<leader>mb',
+    copy_file = '<leader>my', -- Copy-to-clipboard mapping
   }
 }
 ```
@@ -91,6 +95,9 @@ require('compose-ai-message').setup{
 
 - **What if I want to use a different output file?**  
   Set the `file` option in your `setup()`!
+
+- **How do I copy everything to the clipboard without opening the file?**  
+  Press `<leader>my` (or your configured `copy_file` mapping) in normal mode.
 
 - **What does the output look like?**  
   See the example above—it's ready to copy-paste into ChatGPT or GitHub issues.

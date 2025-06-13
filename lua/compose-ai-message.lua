@@ -8,11 +8,11 @@ M.config = {
     reset = '<leader>mr',
     open_file = '<leader>mo',
     add_visual_selection = '<leader>ma',
-    add_full_buffer = '<leader>ma',
+    add_full_buffer = '<leader>mb',
+    copy_file = '<leader>my',  -- added here
   },
 }
 
--- Utility: Write (overwrite) file
 local function write_file(filename, contents)
   local file, err = io.open(filename, "w")
   if not file then
@@ -24,7 +24,6 @@ local function write_file(filename, contents)
   return true
 end
 
--- Utility: Append to file
 local function append_file(filename, contents)
   local file, err = io.open(filename, "a")
   if not file then
@@ -36,7 +35,16 @@ local function append_file(filename, contents)
   return true
 end
 
--- Get buffer path relative to cwd
+local function read_file(filename)
+  local file, err = io.open(filename, "r")
+  if not file then
+    return nil, err
+  end
+  local content = file:read("*a")
+  file:close()
+  return content
+end
+
 local function relativename(bufnr)
   local path = vim.api.nvim_buf_get_name(bufnr)
   local cwd = vim.loop.cwd()
@@ -47,13 +55,11 @@ local function relativename(bufnr)
   return path ~= "" and path or "[No Name]"
 end
 
--- Resets (empties) the file
 function M.reset()
   write_file(M.config.file, "")
   vim.notify("AI message file reset.")
 end
 
--- Add code block entry given lines, lang, user_message
 local function add_entry(user_message, relative_path, lang, lines)
   local entry = user_message .. "\n"
     .. "(" .. relative_path .. ")\n"
@@ -66,7 +72,6 @@ local function add_entry(user_message, relative_path, lang, lines)
   end
 end
 
--- Prompt user for input (blocking)
 local function prompt_user(msg, cb)
   vim.ui.input({ prompt = msg }, function(input)
     if not input then
@@ -77,40 +82,30 @@ local function prompt_user(msg, cb)
   end)
 end
 
--- Get visual selection lines (inclusive), returns lines, buffer-relative line numbers
 local function get_visual_selection()
   local bufnr = vim.api.nvim_get_current_buf()
   local mode = vim.fn.mode()
-
-  -- Get range start/end
   local start_pos = vim.api.nvim_buf_get_mark(bufnr, "<")
   local end_pos   = vim.api.nvim_buf_get_mark(bufnr, ">")
-
   local start_line = start_pos[1]
   local end_line   = end_pos[1]
-
-  -- nvim indices: start/end lines are inclusive, 1-based
   if start_line > end_line then
     start_line, end_line = end_line, start_line
   end
-
   local lines = vim.api.nvim_buf_get_lines(bufnr, start_line - 1, end_line, false)
   return lines, start_line, end_line
 end
 
--- Add visual selection to AI message file
 function M.add_visual_selection()
   local bufnr = vim.api.nvim_get_current_buf()
   local lang = vim.bo[bufnr].filetype or ""
   local relname = relativename(bufnr)
   local lines = select(1, get_visual_selection())
-  -- Prompt for user message, then append
   prompt_user("Describe the visual selection:", function(user_message)
     add_entry(user_message, relname, lang, lines)
   end)
 end
 
--- Add full buffer to AI message file
 function M.add_full_buffer()
   local bufnr = vim.api.nvim_get_current_buf()
   local lang = vim.bo[bufnr].filetype or ""
@@ -121,36 +116,52 @@ function M.add_full_buffer()
   end)
 end
 
--- Opens the message file in the current window, editing it
 function M.open_file()
   vim.cmd("edit " .. vim.fn.fnameescape(M.config.file))
+end
+
+-- Copy the entire content of the md file to clipboard (system '+')
+function M.copy_file_contents()
+  local content, err = read_file(M.config.file)
+  if not content then
+    vim.notify("Failed to read file: " .. (err or ""), vim.log.levels.ERROR)
+    return
+  end
+  if content == "" then
+    vim.fn.setreg("+", "")
+    vim.notify("AI message file is empty, copied empty string.", vim.log.levels.WARN)
+    return
+  end
+  vim.fn.setreg("+", content)
+  vim.notify("AI message file copied to clipboard.")
 end
 
 function M.setup_mappings()
   local opts = { noremap = true, silent = true }
 
-  -- Visual selection mapping (visual mode)
   vim.api.nvim_set_keymap("x",
     M.config.mappings.add_visual_selection,
     "<Esc><Cmd>lua require('compose-ai-message').add_visual_selection()<CR>",
     opts)
 
-  -- Full buffer mapping (normal mode)
   vim.api.nvim_set_keymap("n",
     M.config.mappings.add_full_buffer,
     "<Cmd>lua require('compose-ai-message').add_full_buffer()<CR>",
     opts)
 
-  -- Reset mapping (normal mode)
   vim.api.nvim_set_keymap("n",
     M.config.mappings.reset,
     "<Cmd>lua require('compose-ai-message').reset()<CR>",
     opts)
 
-  -- Open file mapping (normal mode)
   vim.api.nvim_set_keymap("n",
     M.config.mappings.open_file,
     "<Cmd>lua require('compose-ai-message').open_file()<CR>",
+    opts)
+
+  vim.api.nvim_set_keymap("n",
+    M.config.mappings.copy_file,
+    "<Cmd>lua require('compose-ai-message').copy_file_contents()<CR>",
     opts)
 end
 
@@ -159,7 +170,6 @@ function M.setup(user_opts)
 
   M.setup_mappings()
 
-  -- Reset the file at startup
   M.reset()
 end
 
